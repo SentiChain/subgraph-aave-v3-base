@@ -1,0 +1,50 @@
+specVersion: 1.0.0
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: Pool
+    network: base
+    source:
+      address: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5"
+      abi: Pool
+      startBlock: 12292697
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Protocol
+        - Market
+        - Token
+        - UserPosition
+        - User
+        - Transaction
+        - HourlySnapshot
+        - DailySnapshot
+      abis:
+        - name: Pool
+          file: ./abis/Pool.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+        - name: AaveOracle
+          file: ./abis/AaveOracle.json
+        - name: PoolDataProvider
+          file: ./abis/PoolDataProvider.json
+      eventHandlers:
+        - event: Supply(indexed address,address,indexed address,uint256,indexed uint16)
+          handler: handleSupply
+        - event: Withdraw(indexed address,indexed address,indexed address,uint256)
+          handler: handleWithdraw
+        - event: Borrow(indexed address,address,indexed address,uint256,uint8,uint256,indexed uint16)
+          handler: handleBorrow
+        - event: Repay(indexed address,indexed address,indexed address,uint256,bool)
+          handler: handleRepay
+        - event: ReserveDataUpdated(indexed address,uint256,uint256,uint256,uint256,uint256)
+          handler: handleReserveDataUpdated
+      blockHandlers:
+        - handler: handleBlock
+          filter:
+            kind: polling
+            every: 100  # Every 100 blocks (~200 seconds on Base, ~432 times per day)
+      file: ./src/pool.ts

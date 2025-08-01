@@ -1,0 +1,175 @@
+type Protocol @entity(immutable: false) {
+  id: ID! # "aave-v3-base"
+  totalSupplyUSD: BigDecimal!
+  totalBorrowUSD: BigDecimal!
+  totalRevenueUSD: BigDecimal!
+  cumulativeSupplySideRevenueUSD: BigDecimal!
+  cumulativeProtocolSideRevenueUSD: BigDecimal!
+}
+
+type Market @entity(immutable: false) {
+  id: ID! # USDC address lowercased
+  protocol: Protocol!
+  asset: Bytes! # USDC address
+  aToken: Bytes! # aBasUSDC address
+  vToken: Bytes! # Variable debt token
+  sToken: Bytes! # Stable debt token (if exists)
+  
+  # Current state
+  inputToken: Token!
+  outputToken: Token! # aToken
+  totalSupply: BigInt! # In asset units
+  totalBorrow: BigInt! # In asset units
+  availableLiquidity: BigInt!
+  
+  # Rates (Ray units - 27 decimals)
+  liquidityRate: BigInt! # Supply APY
+  variableBorrowRate: BigInt!
+  stableBorrowRate: BigInt!
+  
+  # Calculated fields
+  supplyAPY: BigDecimal! # Human readable %
+  variableBorrowAPY: BigDecimal!
+  utilizationRate: BigDecimal! # 0-100%
+  
+  # Configuration
+  reserveFactor: BigInt! # Revenue split
+  ltv: BigInt! # Loan to value
+  liquidationThreshold: BigInt!
+  liquidationPenalty: BigInt!
+  
+  # Timestamps
+  lastUpdateTimestamp: BigInt!
+  lastUpdateBlock: BigInt!
+  lastRevenueCalculationTimestamp: BigInt! # Track when revenue was last calculated
+}
+
+type Token @entity(immutable: false) {
+  id: ID! # Token address
+  symbol: String!
+  name: String!
+  decimals: Int!
+  totalSupply: BigInt!
+  lastPriceUSD: BigDecimal!
+  lastPriceTimestamp: BigInt!
+}
+
+type UserPosition @entity(immutable: false) {
+  id: ID! # user-market
+  user: User!
+  market: Market!
+  
+  # Balances
+  aTokenBalance: BigInt! # Lending balance
+  variableDebtBalance: BigInt!
+  stableDebtBalance: BigInt!
+  
+  # Principal tracking
+  principal: BigInt! # Total deposited
+  totalDeposited: BigInt! # Cumulative
+  totalWithdrawn: BigInt! # Cumulative
+  
+  # P&L
+  realizedPnL: BigDecimal!
+  unrealizedPnL: BigDecimal!
+  
+  # State
+  isCollateral: Boolean!
+  lastUpdateTimestamp: BigInt!
+}
+
+type User @entity(immutable: false) {
+  id: ID! # User address
+  positions: [UserPosition!]! @derivedFrom(field: "user")
+  totalSupplyUSD: BigDecimal!
+  totalBorrowUSD: BigDecimal!
+  transactionCount: Int!
+}
+
+type Transaction @entity(immutable: true) {
+  id: ID! # txHash-logIndex
+  hash: Bytes!
+  timestamp: BigInt!
+  block: BigInt!
+  from: User!
+  market: Market!
+  type: TransactionType!
+  amount: BigInt!
+  amountUSD: BigDecimal!
+}
+
+enum TransactionType {
+  SUPPLY
+  WITHDRAW
+  BORROW
+  REPAY
+  LIQUIDATION
+}
+
+type HourlySnapshot @entity(immutable: false) {
+  id: ID! # market-hourId
+  market: Market!
+  hourId: Int!
+  timestamp: BigInt!
+  
+  # Rates
+  supplyAPY: BigDecimal!
+  borrowAPY: BigDecimal!
+  utilizationRate: BigDecimal!
+  
+  # Volume
+  totalSupply: BigInt!
+  totalBorrow: BigInt!
+  
+  # Activity
+  hourlySupplyVolume: BigInt!
+  hourlyWithdrawVolume: BigInt!
+  hourlyBorrowVolume: BigInt!
+  hourlyRepayVolume: BigInt!
+}
+
+type DailySnapshot @entity(immutable: false) {
+  id: ID! # market-dayId
+  market: Market!
+  dayId: Int!
+  timestamp: BigInt!
+  
+  # Rates
+  supplyAPY: BigDecimal!
+  borrowAPY: BigDecimal!
+  utilizationRate: BigDecimal!
+  
+  # Volume
+  totalSupply: BigInt!
+  totalBorrow: BigInt!
+  
+  # Daily activity
+  dailySupplyVolume: BigInt!
+  dailyWithdrawVolume: BigInt!
+  dailyBorrowVolume: BigInt!
+  dailyRepayVolume: BigInt!
+  dailyActiveUsers: Int!
+  
+  # Revenue
+  dailySupplySideRevenueUSD: BigDecimal!
+  dailyProtocolSideRevenueUSD: BigDecimal!
+  dailyTotalRevenueUSD: BigDecimal!
+}
+
+# Track active users per day
+type DailyActiveUser @entity(immutable: false) {
+  id: ID! # dayId-userId
+  day: Int!
+  user: User!
+}
+
+# Track if daily revenue has been accumulated
+type DailyRevenueSnapshot @entity(immutable: false) {
+  id: ID! # dayId
+  day: Int!
+  timestamp: BigInt!
+  totalSupplySideRevenueUSD: BigDecimal!
+  totalProtocolSideRevenueUSD: BigDecimal!
+  totalRevenueUSD: BigDecimal!
+  isAccumulated: Boolean!
+}
